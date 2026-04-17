@@ -435,3 +435,59 @@ ssize_t boot_get_area_trailer_status_offset(uint8_t area_id)
 
 	return offset;
 }
+
+int boot_request_mcuboot_to(uint8_t area_id, uint8_t target_id)
+{
+	const struct flash_area *fa = NULL;
+	int rc;
+	int ret = 0;
+
+	if (target_id == (uint8_t)PM_MCUBOOT_PRIMARY_ID) {
+		LOG_INF("Request mcuboot boot to primary on reboot");
+	} else if (target_id == (uint8_t)PM_MCUBOOT_SECONDARY_ID) {
+		LOG_INF("Request mcuboot boot to secondary on reboot");
+	} else {
+		/* Invalid target_id, no action required */
+		return -EINVAL;
+	}
+
+	rc = flash_area_open(area_id, &fa);
+	if (rc != 0) {
+		LOG_ERR("Flash open area %u failed: %d", area_id, rc);
+		ret = rc;
+	} else if (target_id == (uint8_t)PM_MCUBOOT_PRIMARY_ID) {
+		/* Erase trailer safely */
+		ssize_t off = boot_get_trailer_status_offset(fa->fa_size);
+
+		if (off < 0) {
+			ret = -EINVAL;
+		} else {
+			rc = flash_area_erase(fa, (size_t)off, fa->fa_size - (size_t)off);
+			if (rc < 0) {
+				LOG_ERR("Can't erase trailer [%d]", rc);
+				ret = -EIO;
+			}
+		}
+
+		flash_area_close(fa);
+	} else if (target_id == (uint8_t)PM_MCUBOOT_SECONDARY_ID) {
+		rc = boot_write_image_ok_val(fa, 1);
+		if (rc < 0) {
+			LOG_ERR("Can't update image_ok [%d]", rc);
+			ret = rc;
+		} else {
+			rc = boot_write_image_magic(fa);
+			if (rc < 0) {
+				LOG_ERR("Can't write magic [%d]", rc);
+				ret = rc;
+			}
+		}
+
+		flash_area_close(fa);
+	} else {
+		flash_area_close(fa);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
