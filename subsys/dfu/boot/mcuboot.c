@@ -435,3 +435,57 @@ ssize_t boot_get_area_trailer_status_offset(uint8_t area_id)
 
 	return offset;
 }
+
+int boot_request_mcuboot_to(uint8_t area_id, uint8_t target_id)
+{
+    LOG_INF("Request mcuboot boot to %s on reboot",
+            target_id == 0 ? "primary" : "secondary");
+
+    const struct flash_area *fa;
+    int rc;
+
+    rc = flash_area_open(area_id, &fa);
+    if (rc) {
+        LOG_ERR("Flash open area %u failed: %d", area_id, rc);
+        return rc;
+    }
+
+    if (target_id == 0) {
+        /* Erase trailer safely */
+        ssize_t off = boot_get_trailer_status_offset(fa->fa_size);
+        if (off < 0) {
+            flash_area_close(fa);
+            return -EINVAL;
+        }
+
+        rc = flash_area_erase(fa, off, fa->fa_size - off);
+        if (rc < 0) {
+            LOG_ERR("Can't erase trailer [%d]", rc);
+            flash_area_close(fa);
+            return -EIO;
+        }
+
+    } else if (target_id == 1) {
+
+        rc = boot_write_image_ok_val(fa, 1);
+        if (rc < 0) {
+            LOG_ERR("Can't update image_ok [%d]", rc);
+            flash_area_close(fa);
+            return rc;
+        }
+
+        rc = boot_write_image_magic(fa);
+        if (rc < 0) {
+            LOG_ERR("Can't write magic [%d]", rc);
+            flash_area_close(fa);
+            return rc;
+        }
+
+    } else {
+        flash_area_close(fa);
+        return -EINVAL;
+    }
+
+    flash_area_close(fa);
+    return 0;
+}

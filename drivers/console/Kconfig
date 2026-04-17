@@ -232,6 +232,32 @@ config UART_MCUMGR_RX_BUF_COUNT
 	  UART_MCUMGR_RX_BUF_COUNT * UART_MCUMGR_RX_BUF_SIZE >=
 	  MCUMGR_TRANSPORT_UART_MTU
 
+config UART_MCUMGR_RTT_TIMER_POLL
+	bool "Enable timer-based polling for MCUmgr over UART RTT"
+	default false
+	help
+		Enables a timer-based polling mechanism to receive MCUmgr fragments
+		when using UART RTT as the transport.
+
+		Unlike real UART hardware, RTT does not support interrupt-driven
+		RX/TX events (e.g., FIFO RX full or TX empty). When this option is
+		enabled, a periodic timer is used to poll incoming data from the RTT
+		buffer instead of relying on IRQs.
+
+		This option should be enabled when UART mode is used together
+		with RTT, or when no hardware interrupt support is available for RX.
+
+		Note: Polling may increase CPU usage compared to interrupt-driven
+		operation.
+
+config UART_MCUMGR_RTT_RX_POLL_PERIOD
+	int "Millisecond interval for MCUmgr RTT RX polling"
+	default 10
+	depends on UART_MCUMGR_RTT_TIMER_POLL
+	help
+	  Defines the polling interval (in milliseconds) for checking the RTT
+	  RX buffer when timer-based polling is enabled.
+
 endif # UART_MCUMGR
 
 config XTENSA_SIM_CONSOLE

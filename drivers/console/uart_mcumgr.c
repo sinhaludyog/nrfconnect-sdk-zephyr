@@ -15,6 +15,20 @@
 #include <zephyr/mgmt/mcumgr/transport/serial.h>
 #include <zephyr/drivers/console/uart_mcumgr.h>
 
+#ifdef CONFIG_UART_MCUMGR_RTT_TIMER_POLL
+
+#include <SEGGER_RTT.h>
+
+// Todo: We have no access to uart_rtt_config here, so it need to known uart_rtt_config type here
+struct rtt_config {
+	void *up_buffer;
+	size_t up_size;
+	void *down_buffer;
+	size_t down_size;
+	uint8_t channel;
+};
+#endif
+
 static const struct device *const uart_mcumgr_dev =
 	DEVICE_DT_GET(DT_CHOSEN(zephyr_uart_mcumgr));
 
@@ -38,6 +52,10 @@ K_MEM_SLAB_DEFINE(uart_mcumgr_slab, sizeof(struct uart_mcumgr_rx_buf),
 uint8_t async_buffer[CONFIG_MCUMGR_TRANSPORT_UART_ASYNC_BUFS]
 		    [CONFIG_MCUMGR_TRANSPORT_UART_ASYNC_BUF_SIZE];
 static int async_current;
+#endif
+
+#ifdef CONFIG_UART_MCUMGR_RTT_TIMER_POLL
+static struct k_timer mcumgr_rx_timer;
 #endif
 
 static struct uart_mcumgr_rx_buf *uart_mcumgr_alloc_rx_buf(void)
@@ -197,6 +215,35 @@ static void uart_mcumgr_isr(const struct device *unused, void *user_data)
 }
 #endif
 
+#ifdef CONFIG_UART_MCUMGR_RTT_TIMER_POLL
+static void timer_handler(struct k_timer *timer)
+{
+	struct device *const mcumgr_dev = k_timer_user_data_get(timer);
+
+	struct uart_mcumgr_rx_buf *rx_buf;
+	uint8_t buf[32];
+	int chunk_len;
+	int i;
+
+	const struct rtt_config *config = mcumgr_dev->config;
+	unsigned int ch = config ? config->channel : 0;
+
+	while (SEGGER_RTT_HasData(ch)) {
+		// chunk_len = uart_mcumgr_read_chunk(buf, sizeof(buf));
+		chunk_len = SEGGER_RTT_Read(ch, buf, sizeof(buf));
+		if (chunk_len == 0) {
+			continue;
+		}
+
+		for (i = 0; i < chunk_len; i++) {
+			rx_buf = uart_mcumgr_rx_byte(buf[i]);
+			if (rx_buf != NULL) {
+				uart_mcumgr_recv_cb(rx_buf);
+			}
+		}
+	}
+}
+#endif
 /**
  * Sends raw data over the UART.
  */
@@ -243,5 +290,11 @@ void uart_mcumgr_register(uart_mcumgr_recv_fn *cb)
 
 	if (device_is_ready(uart_mcumgr_dev)) {
 		uart_mcumgr_setup(uart_mcumgr_dev);
+
+#ifdef CONFIG_UART_MCUMGR_RTT_TIMER_POLL
+		k_timer_init(&mcumgr_rx_timer, timer_handler, NULL);
+		k_timer_user_data_set(&mcumgr_rx_timer, (void *)uart_mcumgr_dev);
+		k_timer_start(&mcumgr_rx_timer, K_MSEC(CONFIG_UART_MCUMGR_RTT_RX_POLL_PERIOD), K_MSEC(CONFIG_UART_MCUMGR_RTT_RX_POLL_PERIOD));
+#endif
 	}
 }

@@ -303,6 +303,33 @@ size_t boot_get_image_start_offset(uint8_t area_id);
 #define boot_get_image_start_offset(...) 0
 #endif
 
+/**
+ * @brief Request MCUboot to upgrade and boot from a target image slot.
+ *
+ * This function writes MCUboot trailer information (e.g. magic, image_ok)
+ * into the specified slot (`area_id`) so that MCUboot will perform an image
+ * swap on the next reboot.
+ *
+ * @note MCUboot always boots from the primary slot. To "boot" a target image,
+ *       the image in the secondary slot must be marked as pending, and MCUboot
+ *       will swap it into the primary slot during boot.
+ *
+ * @param area_id
+ *        Flash area ID of the slot where trailer flags will be written.
+ *        Mandantory this is the primary slot (e.g. FLASH_AREA_ID(image_0)).
+ *
+ * @param target_id
+ *        Target slot intended to be booted after reboot.
+ *        In standard MCUboot flow, this must match area_id (primary/secondary slot),
+ *        since direct boot to arbitrary slots is not supported.
+ *
+ * @return 0 on success, negative errno code on failure.
+ *
+ * @retval -EINVAL if area_id and target_id do not represent a valid upgrade path.
+ *
+ */
+int boot_request_mcuboot_to(uint8_t area_id, uint8_t target_id);
+
 #ifdef __cplusplus
 }
 #endif
