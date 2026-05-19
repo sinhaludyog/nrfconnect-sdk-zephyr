@@ -66,6 +66,14 @@ config FS_LITTLEFS_BLOCK_CYCLES
 	  is moved to another block.  Set to a non-positive value to
 	  disable leveling.
 
+config FS_LITTLEFS_READONLY
+    bool "LittleFS read-only mode"
+    default n
+    help
+      Enable read-only mode for LittleFS.
+
+      All write/erase operations will be blocked.
+
 endmenu
 
 config FS_LITTLEFS_FC_HEAP_SIZE

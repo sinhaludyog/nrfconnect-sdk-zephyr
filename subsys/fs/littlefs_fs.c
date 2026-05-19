@@ -271,6 +271,7 @@ static void release_file_data(struct fs_file_t *fp)
 	fp->filep = NULL;
 }
 
+#ifndef LFS_READONLY
 static int lfs_flags_from_zephyr(unsigned int zflags)
 {
 	int flags = (zflags & FS_O_CREATE) ? LFS_O_CREAT : 0;
@@ -285,13 +286,21 @@ static int lfs_flags_from_zephyr(unsigned int zflags)
 
 	return flags;
 }
+#endif
 
 static int littlefs_open(struct fs_file_t *fp, const char *path,
 			 fs_mode_t zflags)
 {
 	struct fs_littlefs *fs = fp->mp->fs_data;
 	struct lfs *lfs = &fs->lfs;
+#ifndef LFS_READONLY
 	int flags = lfs_flags_from_zephyr(zflags);
+#else
+	if(zflags != FS_O_READ) {
+		return -EINVAL;
+	}
+	int flags = FS_O_READ;
+#endif
 	int ret = k_mem_slab_alloc(&file_data_pool, &fp->filep, K_NO_WAIT);
 
 	if (ret != 0) {
@@ -340,6 +349,7 @@ static int littlefs_close(struct fs_file_t *fp)
 	return lfs_to_errno(ret);
 }
 
+#ifndef LFS_READONLY
 static int littlefs_unlink(struct fs_mount_t *mountp, const char *path)
 {
 	struct fs_littlefs *fs = mountp->fs_data;
@@ -369,6 +379,7 @@ static int littlefs_rename(struct fs_mount_t *mountp, const char *from,
 	fs_unlock(fs);
 	return lfs_to_errno(ret);
 }
+#endif
 
 static ssize_t littlefs_read(struct fs_file_t *fp, void *ptr, size_t len)
 {
@@ -381,7 +392,7 @@ static ssize_t littlefs_read(struct fs_file_t *fp, void *ptr, size_t len)
 	fs_unlock(fs);
 	return lfs_to_errno(ret);
 }
-
+#ifndef LFS_READONLY
 static ssize_t littlefs_write(struct fs_file_t *fp, const void *ptr, size_t len)
 {
 	struct fs_littlefs *fs = fp->mp->fs_data;
@@ -393,7 +404,7 @@ static ssize_t littlefs_write(struct fs_file_t *fp, const void *ptr, size_t len)
 	fs_unlock(fs);
 	return lfs_to_errno(ret);
 }
-
+#endif
 BUILD_ASSERT((FS_SEEK_SET == LFS_SEEK_SET)
 	     && (FS_SEEK_CUR == LFS_SEEK_CUR)
 	     && (FS_SEEK_END == LFS_SEEK_END));
@@ -426,7 +437,7 @@ static off_t littlefs_tell(struct fs_file_t *fp)
 	fs_unlock(fs);
 	return ret;
 }
-
+#ifndef LFS_READONLY
 static int littlefs_truncate(struct fs_file_t *fp, off_t length)
 {
 	struct fs_littlefs *fs = fp->mp->fs_data;
@@ -438,7 +449,6 @@ static int littlefs_truncate(struct fs_file_t *fp, off_t length)
 	fs_unlock(fs);
 	return lfs_to_errno(ret);
 }
-
 static int littlefs_sync(struct fs_file_t *fp)
 {
 	struct fs_littlefs *fs = fp->mp->fs_data;
@@ -463,6 +473,7 @@ static int littlefs_mkdir(struct fs_mount_t *mountp, const char *path)
 	fs_unlock(fs);
 	return lfs_to_errno(ret);
 }
+#endif
 
 static int littlefs_opendir(struct fs_dir_t *dp, const char *path)
 {
@@ -939,6 +950,7 @@ static int littlefs_mount(struct fs_mount_t *mountp)
 	ret = lfs_mount(&fs->lfs, &fs->cfg);
 	if (ret < 0 &&
 	    (mountp->flags & FS_MOUNT_FLAG_NO_FORMAT) == 0) {
+#ifndef LFS_READONLY
 		if ((mountp->flags & FS_MOUNT_FLAG_READ_ONLY) == 0) {
 			LOG_WRN("can't mount (LFS %d); formatting", ret);
 			ret = lfs_format(&fs->lfs, &fs->cfg);
@@ -959,16 +971,17 @@ static int littlefs_mount(struct fs_mount_t *mountp)
 			ret = lfs_to_errno(ret);
 			goto out;
 		}
+#endif
 	} else {
 		ret = lfs_to_errno(ret);
 		goto out;
 	}
 
-	LOG_INF("%s mounted", mountp->mnt_point);
-
 out:
 	if (ret < 0) {
 		fs->backend = NULL;
+	} else {
+		LOG_INF("%s mounted", mountp->mnt_point);
 	}
 
 	fs_unlock(fs);
@@ -1041,19 +1054,25 @@ static const struct fs_file_system_t littlefs_fs = {
 	.open = littlefs_open,
 	.close = littlefs_close,
 	.read = littlefs_read,
+#ifndef LFS_READONLY
 	.write = littlefs_write,
+#endif
 	.lseek = littlefs_seek,
 	.tell = littlefs_tell,
+#ifndef LFS_READONLY
 	.truncate = littlefs_truncate,
 	.sync = littlefs_sync,
+#endif
 	.opendir = littlefs_opendir,
 	.readdir = littlefs_readdir,
 	.closedir = littlefs_closedir,
 	.mount = littlefs_mount,
 	.unmount = littlefs_unmount,
+#ifndef LFS_READONLY
 	.unlink = littlefs_unlink,
 	.rename = littlefs_rename,
 	.mkdir = littlefs_mkdir,
+#endif
 	.stat = littlefs_stat,
 	.statvfs = littlefs_statvfs,
 #if defined(CONFIG_FILE_SYSTEM_MKFS)

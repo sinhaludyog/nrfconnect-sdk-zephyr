@@ -73,6 +73,9 @@ extern "C"
 #define LFS_ASSERT(test) __ASSERT_NO_MSG(test)
 #endif
 
+#if(defined(CONFIG_FS_LITTLEFS_READONLY) && CONFIG_FS_LITTLEFS_READONLY == 1)
+#define LFS_READONLY
+#endif
 
 /* Builtin functions, these may be replaced by more efficient */
 /* toolchain-specific implementations. LFS_NO_INTRINSICS falls back to a more */
