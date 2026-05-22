@@ -98,4 +98,16 @@ config SPI_NOR_ACTIVE_DWELL_MS
 	  call, eliminating the active->idle->active transition sequence if another
 	  transaction occurs before the dwell period expires.
 
+config SPI_NOR_READ_ONLY
+	bool "SPI NOR read-only mode"
+	default n
+	help
+	  Disable all write, erase, and program operations for SPI NOR devices.
+
+	  Useful for:
+	  - Protecting factory/programmed data
+	  - Preventing accidental filesystem corruption
+	  - Bootloader recovery images
+	  - Validation/testing environments
+
 endif # SPI_NOR

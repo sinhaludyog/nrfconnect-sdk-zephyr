@@ -238,8 +238,11 @@ static const struct jesd216_erase_type minimal_erase_types_4b[JESD216_NUM_ERASE_
 #define WAIT_READY_ERASE K_NO_WAIT
 #endif
 
+#ifndef CONFIG_SPI_NOR_READ_ONLY
+
 static int spi_nor_write_protection_set(const struct device *dev,
 					bool write_protect);
+#endif
 
 /* Get pointer to array of supported erase types.  Static const for
  * minimal, data for runtime and devicetree.
@@ -944,6 +947,8 @@ static int flash_spi_nor_ex_op(const struct device *dev, uint16_t code,
 }
 #endif
 
+#ifndef CONFIG_SPI_NOR_READ_ONLY
+
 static int spi_nor_write(const struct device *dev, off_t addr,
 			 const void *src,
 			 size_t size)
@@ -1150,6 +1155,7 @@ static int spi_nor_write_protection_set(const struct device *dev,
 
 	return ret;
 }
+#endif // #ifndef CONFIG_SPI_NOR_READ_ONLY
 
 #if defined(CONFIG_FLASH_JESD216_API) || defined(CONFIG_SPI_NOR_SFDP_RUNTIME)
 
@@ -1782,8 +1788,10 @@ static int flash_nor_get_size(const struct device *dev, uint64_t *size)
 
 static DEVICE_API(flash, spi_nor_api) = {
 	.read = spi_nor_read,
+#ifndef CONFIG_SPI_NOR_READ_ONLY
 	.write = spi_nor_write,
 	.erase = spi_nor_erase,
+#endif
 	.get_parameters = flash_nor_get_parameters,
 	.get_size = flash_nor_get_size,
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
