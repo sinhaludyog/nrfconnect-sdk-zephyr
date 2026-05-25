@@ -646,7 +646,7 @@ static int transceive(const struct device *dev,
 
 	if (error == 0) {
 		dev_data->busy = true;
-
+#if 0 //Fixme: need to lock in predefine
 		if (dev_config->wake_pin != WAKE_PIN_NOT_USED) {
 			error = spi_nrfx_wake_request(&dev_config->wake_gpiote,
 						      dev_config->wake_pin);
@@ -659,7 +659,7 @@ static int transceive(const struct device *dev,
 				 */
 			}
 		}
-
+#endif
 		spi_context_buffers_setup(&dev_data->ctx, tx_bufs, rx_bufs, 1);
 		if (NRF_SPIM_IS_320MHZ_SPIM(reg)) {
 			nrfy_spim_enable(reg);
@@ -845,7 +845,7 @@ static int spi_nrfx_init(const struct device *dev)
 	if (err < 0) {
 		return err;
 	}
-
+#if 0 //Fixme: need to lock in predefine
 	if (dev_config->wake_pin != WAKE_PIN_NOT_USED) {
 		err = spi_nrfx_wake_init(&dev_config->wake_gpiote, dev_config->wake_pin);
 		if (err == -ENODEV) {
@@ -857,6 +857,7 @@ static int spi_nrfx_init(const struct device *dev)
 			return err;
 		}
 	}
+#endif
 
 	dev_config->irq_connect();
 
